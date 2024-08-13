@@ -232,5 +232,5 @@ Delete from database the product with the specified ID
 
 
 ## Testing
-
+Run `mvn test` to execute the unit tests
 

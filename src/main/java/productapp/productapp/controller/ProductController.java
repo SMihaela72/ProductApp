@@ -1,72 +1,36 @@
-package controller;
+package productapp.productapp.controller;
 
-import exception.InvalidInputException;
-import exception.ResourceNotFoundException;
-import model.Product;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
+import productapp.productapp.exception.InvalidInputException;
+import productapp.productapp.exception.ProductNotFoundException;
+import productapp.productapp.model.Product;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
-import repository.ProductRepository;
-import service.ProductService;
+import productapp.productapp.service.ProductService;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/products")
 public class ProductController {
-    /*
-    @Autowired
-    private ProductRepository productRepository;
+
     @Autowired
     private ProductService productService;
-    */
-    private final ProductService productService;
-
-    public ProductController(ProductService productService) {
-        this.productService = productService;
-    }
-    /*
-    //  Add product
-    @PostMapping
-    public Product addProduct(@RequestBody Product product) {
-        return productRepository.save(product);
-    }
-
-    // Find product by ID
-    @GetMapping("/{id}")
-    public Product findProduct(@PathVariable Long id) {
-        return productRepository.findById(id).orElseThrow(() -> new RuntimeException("Product not found"));
-    }
-
-    // Change the product price
-    @PutMapping("/{id}/price")
-    public Product changePrice(@PathVariable Long id, @RequestBody double newPrice) {
-        Product product = productRepository.findById(id).orElseThrow(() -> new RuntimeException("Product not found"));
-        product.setPrice(newPrice);
-        return productRepository.save(product);
-    }
-
-     */
 
     // Get all products
     @GetMapping
     public List<Product> getAllProducts() {
         return productService.getAllProducts();
-        //return productRepository.findAll();
     }
 
     // Get product by ID
     @GetMapping("/{id}")
     public Product getProductById(@PathVariable Long id) {
         return productService.getProductById(id);
-    }
-
-    // Get products by name
-    @GetMapping
-    public List<Product> getProductsByName(@PathVariable String name) {
-        return productService.getAllProducts();
     }
 
     //  Add product
@@ -77,23 +41,60 @@ public class ProductController {
             return ResponseEntity.status(HttpStatus.CREATED).body("Product added successfully");
         } catch (InvalidInputException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        } catch (DataIntegrityViolationException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("A product with the same attributes already exists");
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Unexpected error occurred");
         }
     }
 
-    // Change the product price
+    // Change product price
     @PutMapping("/{id}/changePrice")
     public ResponseEntity<String> changePrice(@PathVariable Long id, @RequestBody double newPrice) {
         try {
             productService.changePrice(id, newPrice);
-            return ResponseEntity.ok("Price was updated successfully");
-        } catch (ResourceNotFoundException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+            return ResponseEntity.ok("The price has been successfully updated");
+        } catch (ProductNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Product not found");
         } catch (InvalidInputException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Unexpected error occurred");
         }
+    }
+
+    // Get product count
+    @GetMapping("/count")
+    public ResponseEntity<Map<String, Integer>> getProductCount() {
+        int count = productService.getProductCount();
+        Map<String, Integer> response = new HashMap<>();
+        response.put("count", count);
+        return ResponseEntity.ok(response);
+    }
+
+    //Get products with the price smaller than priceToCompare
+    @GetMapping("/getProductsWithPriceLessThan")
+    public List<Product> getProductsWithPriceLessThan(Double maxPrice) {
+        return productService.getProductsWithPriceLessThan(maxPrice);
+    }
+
+    //Get products with name containing stringToFind
+    @GetMapping("/getProductsWithNameContains")
+    public List<Product> getProductsWithNameContains(String stringToFind) {
+        return productService.getProductsWithNameContains(stringToFind);
+    }
+
+    // Delete all products from DB
+    @DeleteMapping("/deleteAllProducts")
+    public ResponseEntity<Void> deleteAllProducts() {
+        productService.deleteAllProducts();
+        return ResponseEntity.noContent().build();
+    }
+
+    //Delete product with id
+    @DeleteMapping("/deleteProductById/{id}")
+    public ResponseEntity<Void> deleteProductById(@PathVariable Long id) {
+        productService.deleteProductById(id);
+        return ResponseEntity.noContent().build();
     }
 }

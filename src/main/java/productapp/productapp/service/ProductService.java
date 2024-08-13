@@ -1,119 +1,135 @@
-package service;
+package productapp.productapp.service;
 
-import exception.InvalidInputException;
-import exception.ResourceNotFoundException;
-import model.Product;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.transaction.annotation.Transactional;
+import productapp.productapp.exception.InvalidInputException;
+import productapp.productapp.exception.ProductNotFoundException;
+import productapp.productapp.model.Product;
 import org.springframework.stereotype.Service;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
-import repository.ProductRepository;
-import repository.ProductRepositoryJDBC;
+import productapp.productapp.repository.ProductRepository;
 
-import java.sql.ResultSet;
-import java.util.ArrayList;
+import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @Service
 public class ProductService {
-    private static final Logger logger = LoggerFactory.getLogger(ProductService.class);
+    private static final Logger log = LoggerFactory.getLogger(ProductService.class);
 
-    //@Autowired
-    private final ProductRepository productRepository;
-
-    /*
     @Autowired
-    private JdbcTemplate jdbcRepository;
-    */
-
-    public ProductService(ProductRepository productRepository) {
-        this.productRepository = productRepository;
-    }
-
+    private ProductRepository productRepository;
 
     public List<Product> getAllProducts() {
-        /*  =====
-        String sql = "SELECT * FROM product";
-
-        List<Map<String, Object>> rows = jdbcRepository.queryForList(sql);
-        List<Product> products = new ArrayList<>();
-
-        for (Map<String, Object> row : rows) {
-            Long id = (Long) row.get("id");
-            String name = (String) row.get("name");
-            double price = (double) row.get("price");
-
-            Product product = new Product(id, name, price);
-            products.add(product);
+        try {
+            List<Product> products = productRepository.findAll();
+            log.info("Successfully executed - getAllProducts");
+            return products;
+        } catch (Exception e) {
+            log.error("Error at call getAllProducts: {}", e.getMessage());
+            throw new RuntimeException("Unexpected error occurred", e);
         }
-
-        return products;
-
-         */
-        return productRepository.findAll();
     }
 
     public Product getProductById(@PathVariable Long id) {
-        return productRepository.findById(id).orElseThrow(() -> new RuntimeException("Product not found"));
+            return productRepository.findById(id).orElseThrow(
+                    () -> {
+                        log.error("Error at getProductById for id: : {}", id);
+                        return new ProductNotFoundException("Product not found");
+                    });
     }
 
-    /*
-    public List<Product> getProductsByName(@PathVariable String name) {
-        return productRepository.getProductsByName(name).orElseThrow(() -> new RuntimeException("Product not found"));
-    }
-    */
-
-    public Product addProduct(@RequestBody Product product) {
+    @Transactional
+    public void addProduct(@RequestBody Product product) {
         try {
             if (product.getName() == null || product.getName().isEmpty()) {
                 throw new InvalidInputException("Product name cannot be null or empty.");
             }
 
-            if (product.getPrice() == null || product.getPrice().compareTo(BigDecimal.ZERO) <= 0) {
+            if (product.getPrice() == null || product.getPrice() <= 0) {
                 throw new InvalidInputException("Product price must be greater than zero.");
             }
 
             productRepository.save(product);
-            logger.info("Product added successfully: {}", product);
+            log.info("Product added successfully: {}", product);
         } catch (InvalidInputException e) {
-            logger.error("Error adding product: {}", e.getMessage());
+            log.error("Error adding product: {}", e.getMessage());
             throw e;
+        } catch (DataIntegrityViolationException e) {
+            log.error("A product with the same attributes already exists: {}", e.getMessage());
+            throw new RuntimeException("A product with the same attributes already exists: ", e);
         } catch (Exception e) {
-            logger.error("Unexpected error while adding product: {}", e.getMessage());
-            throw new RuntimeException("Unexpected error occurred", e);
+            log.error("Error while adding product: {}", e.getMessage());
+            throw new RuntimeException("Unexpected error: ", e);
         }
     }
 
-    public Product changePrice(@PathVariable Long id, @RequestBody Double newPrice) {
+    @Transactional
+    public void changePrice(@PathVariable Long id, @RequestBody Double newPrice) {
         try {
             Product product = productRepository.findById(id)
-                    .orElseThrow(() -> new ResourceNotFoundException("Product with id: " + String.valueOf(id) + " not found "));
+                    .orElseThrow(() -> new ProductNotFoundException("Product with id: " + id + " not found "));
 
             if (newPrice == null || newPrice <= 0) {
                 throw new InvalidInputException("Price must be greater than zero.");
             }
 
             product.setPrice(newPrice);
+            product.setUpdDate(LocalDateTime.now());
             productRepository.save(product);
 
-            logger.info("Price was updated successfully for for the product with id: {}", id);
-        } catch (ResourceNotFoundException e) {
-            logger.error("Error while updating price for the product with id: {}. {}", id, e.getMessage());
+            log.info("Price was successfully updated for the product with id: {}", id);
+        } catch (ProductNotFoundException e) {
+            log.error("Product not found for id: {}. {}", id, e.getMessage());
             throw e;
-        } catch (InvalidInputException e) {
-            logger.error("Error while updating price for the product with id: {}. {}", id, e.getMessage());
+        }
+        catch (InvalidInputException e) {
+            log.error("Invalid input to update the product with id: {}. {}", id, e.getMessage());
             throw e;
-        } catch (Exception e) {
-            logger.error("Unexpected error while updating price for the product with id: {}. {}", id, e.getMessage());
-            throw new RuntimeException("Unexpected error occurred", e);
+        }catch (Exception e) {
+            log.error("Error while updating price for the product with id: {}. {}", id, e.getMessage());
+            throw new RuntimeException("Unexpected error: ", e);
         }
     }
 
-    public int getProductNumberStartingWith(@PathVariable Long id) {
-        return productRepository.findById(id).orElseThrow(() -> new RuntimeException("Product not found"));
+    public int getProductCount() {
+        int count = productRepository.getProductCount();
+        log.info("The count of products in database is {}", count);
+        return count;
     }
+
+    public List<Product> getProductsWithPriceLessThan(Double maxPrice) {
+        log.info("Call getProductsWithPriceLessThan");
+        return productRepository.getProductsWithPriceLessThan(maxPrice);
+    }
+
+    public List<Product> getProductsWithNameContains(String stringToFind) {
+        log.info("Call getProductsWithNameContains");
+        return productRepository.getProductsWithNameContains(stringToFind);
+    }
+
+    @Transactional
+    public void deleteAllProducts() {
+        try {
+            productRepository.deleteAll();
+        } catch (Exception e) {
+            log.error("Error at call deleteAllProducts: {}", e.getMessage());
+            throw new RuntimeException("Unexpected error occurred while trying to delete all products", e);
+        }
+    }
+
+    @Transactional
+    public void deleteProductById(Long id) {
+        try {
+            productRepository.deleteById(id);
+        } catch (Exception e) {
+            log.error("Error at call deleteProductById: {}", e.getMessage());
+            throw new RuntimeException("Unexpected error occurred while trying to delete the product by ID", e);
+        }
+    }
+
 }

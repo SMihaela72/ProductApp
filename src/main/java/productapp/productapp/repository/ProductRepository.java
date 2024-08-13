@@ -1,20 +1,21 @@
-package repository;
+package productapp.productapp.repository;
 
-import model.Product;
+import org.springframework.data.jpa.repository.Query;
+import productapp.productapp.model.Product;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
-import org.springframework.web.bind.annotation.RequestBody;
+
+import java.util.List;
 
 @Repository
 public interface ProductRepository extends JpaRepository<Product, Long>{
-/*
-    public Product addProduct(@RequestBody Product product) {
-        return productRepository.save(product);
-    }
 
- */
-    // Find products wuth the price greater than priceToCompare
-    /*public List<Product> findByPriceGreaterThan(BigDecimal priceToCompare) {
-        return null;
-    }*/
+    @Query("SELECT count(p.id) FROM Product p ")
+    int getProductCount();
+
+    @Query("SELECT p FROM Product p WHERE p.price < ?1 ")
+    List<Product> getProductsWithPriceLessThan(Double maxPrice);
+
+    @Query("SELECT p FROM Product p WHERE p.name LIKE %:stringToFind% ")
+    List<Product> getProductsWithNameContains(String stringToFind);
 }

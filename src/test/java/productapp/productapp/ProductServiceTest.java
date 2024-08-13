@@ -1,64 +1,89 @@
-package com.example.projectspring_01;
+package productapp.productapp;
 
-import com.example.projectspring_01.controller.ProductController;
-import com.example.projectspring_01.model.Product;
-import com.example.projectspring_01.repository.ProductRepository;
+import productapp.productapp.exception.ProductNotFoundException;
+import productapp.productapp.model.Product;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.transaction.annotation.Transactional;
+import productapp.productapp.repository.ProductRepository;
+import productapp.productapp.service.ProductService;
 
-import java.util.Arrays;
 import java.util.List;
-import java.util.logging.Logger;
+import java.util.Optional;
 
-@ExtendWith(MockitoExtension.class)
+import static org.junit.jupiter.api.Assertions.*;
+
+@SpringBootTest
+@Transactional
 public class ProductServiceTest {
 
-    private static final org.slf4j.Logger logger = LoggerFactory.getLogger(ProductServiceTest.class);
+    @Autowired
+    private ProductService productService;
 
-    @Test
-    public void testLogging() {
-        logger.info("This is a test log message.");
-    }
-
-    @Mock
+    @Autowired
     private ProductRepository productRepository;
 
-    @InjectMocks
-    private ProductController productController;
+    @Test
+    public void testAddProduct() {
+        productRepository.deleteAll();
+
+        Product product = new Product();
+        product.setName("HDD");
+        product.setPrice(250.00);
+
+        productService.addProduct(product);
+
+        List<Product> products = productRepository.findAll();
+        assertEquals(1, products.size(), "The new product was inserted");
+        Product newProduct = products.get(0);
+        assertNotNull(newProduct.getId(), "Id was generated for the new product");
+        assertEquals("HDD", newProduct.getName(), "Product name not match");
+        assertEquals(250.00, newProduct.getPrice(), "Product price not match");
+    }
 
     @Test
-    public void testGetAllProducts() {
-        System.out.println("Start testGetAllProducts");
-        logger.info("Start testGetAllProducts");
-        List<Product> productList = productController.getAllProducts();
-        logger.info("Size productList = " + productList.size());
-        System.out.println("Size productList = " + productList.size());
+    public void testChangePrice() {
+        productRepository.deleteAll();
 
-        // 1. Setup: Pregătește datele de test
-        Product product1 = new Product("Product1", 100.0);
-        Product product2 = new Product("Product2", 200.0);
-        Product saved1 = productController.addProduct(product1);
-        Product saved2 = productController.addProduct(product2);
-        //Product saved = productRepository.save(product1);
-        //Product saved2 = productRepository.save(product2);
-        List<Product> mockProducts = Arrays.asList(product1, product2);
+        Product product = new Product();
+        product.setName("Laptop_model2");
+        product.setPrice(2250.00);
+        Product savedProduct = productRepository.save(product);
 
-        // 2. Definește comportamentul mock-ului
-        /*when(productRepository.findAll()).thenReturn(mockProducts);
+        Double newPrice = 2140.00;
+        productService.changePrice(savedProduct.getId(), newPrice);
 
-        // 3. Execute: Apelează metoda pe care vrei să o testezi
-        List<Product> products = productController.getAllProducts();
+        Product updatedProduct = productRepository.findById(savedProduct.getId()).orElse(null);
+        assertNotNull(updatedProduct, "Product have to not be null");
+        assertEquals(newPrice, updatedProduct.getPrice(), "Product price not updated");
+    }
 
-        // 4. Verify: Verifică rezultatul
-        assertEquals(2, products.size());
-        assertEquals("Product1", products.get(0).getName());
-        assertEquals("Product2", products.get(1).getName());
+    @Test
+    public void testCount() {
+        int count = productService.getProductCount();
+        assertEquals(count, 5, "Error getCount");
+    }
 
-        // 5. Verifică interacțiunile cu mock-ul (opțional)
-        verify(productRepository, times(1)).findAll();*/
+    @Test
+    public void testChangePriceProductNotFound() {
+        Double newPrice = 542.00;
+        assertThrows(ProductNotFoundException.class, () -> {
+            productService.changePrice(-1000L, newPrice);
+        }, "Expected to throw exception ProductNotFoundException");
+    }
+
+    @Test
+    public void testDeleteProductById() {
+        Product product = new Product("Laptop_model3", 1234.00);
+        product = productRepository.save(product);
+
+        Optional<Product> foundProduct = productRepository.findById(product.getId());
+        assertTrue(foundProduct.isPresent());
+
+        productService.deleteProductById(product.getId());
+
+        Optional<Product> deletedProduct = productRepository.findById(product.getId());
+        assertFalse(deletedProduct.isPresent());
     }
 }
