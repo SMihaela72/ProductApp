@@ -13,6 +13,7 @@ import productapp.productapp.repository.ProductRepository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -105,6 +106,14 @@ public class ProductService {
     public List<Product> getProductsWithPriceLessThan(Double maxPrice) {
         log.info("Call getProductsWithPriceLessThan");
         return productRepository.getProductsWithPriceLessThan(maxPrice);
+    }
+
+    public List<Product> getProductsWithPriceLessThanTW(Double maxPrice) {
+        log.info("Call getProductsWithPriceLessThanTW");
+        List<Product> products = productRepository.findAll();
+        return products.stream()
+                .takeWhile(product -> product.getPrice() < maxPrice)
+                .collect(Collectors.toList());
     }
 
     public List<Product> getProductsWithNameContains(String stringToFind) {
